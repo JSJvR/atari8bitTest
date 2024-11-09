@@ -38,14 +38,16 @@ def md5checksum(file):
     return checksum
 
 def scandir(path, output, pattern = '.*'):
-    with os.scandir(path) as it:
-        for entry in it:
+    dir = os.scandir(path)
+    with dir:
+        for entry in dir:
             if not entry.name.startswith('.') and entry.is_file() and not re.search(pattern, entry.name) is None:
                 checksum = md5checksum(entry.path)
                 output.append({
                     'name': entry.name, 
                     'checksum': checksum
                 })
+    dir.close()
     output.sort(key=lambda x: x['name'])
 
 def get_current_state():

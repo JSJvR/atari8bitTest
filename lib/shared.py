@@ -126,11 +126,13 @@ def files_to_atascii(ipath, opath):
                 ofile.close()
 
 def clear_dir(path):
-    print(f'Deteing all files in {path}')
-    with os.scandir(path) as it:
-        for entry in it:
+    print(f'Deleting all files in {path}')
+    dir = os.scandir(path)
+    with dir:
+        for entry in dir:
             if not entry.name.startswith('.') and entry.is_file():
                 os.remove(entry.path)
+    dir.close()
 
 def _test():
     print("*****************************")
