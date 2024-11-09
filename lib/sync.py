@@ -4,21 +4,62 @@ import os.path
 import re
 import json
 import subprocess
+import textwrap
 from enum import Enum
+import sys
 import time
 from .shared import clear_dir
 from .shared import files_to_utf8
 
 state_file = './state.json'
 
+# Global variables
+iterations = 0
+current_config = None
+default_cofig = {
+        'delay': 20,
+        'daemon': False,
+        'iterations': 100
+    }
+exit_now = False
+
+def get_default_config():
+    global current_config
+    print('\tNo config found in state.json. Using defaults')
+    current_config = default_cofig
+    print(textwrap.indent(json.dumps(current_config, indent=4), '\t'))
+
+def load_state():
+    f = open(state_file, mode='r')
+    state = json.loads(f.read())
+    f.close()
+    return state
+
+def apply_config():
+    global current_config
+
+    # Merge defaults with values loaded from file
+    current_config = default_cofig | load_state()['config']
+    print('\tUsing config:')
+    print(textwrap.indent(json.dumps(current_config, indent=4), '\t  '))
+
+def wait():
+    delay = current_config['delay']
+    print(f'\tSleeping for {delay} seconds')
+    time.sleep(delay)
+
+
 class Action(Enum):
+    DEFAULT_CONFIG = 'config', lambda: get_default_config()
+    APPLY_CONFIG = 'config', lambda: apply_config()
     EXTRACT_ATR = 'atr', lambda: extract_atr()
     DELETE_UTF8 = 'atascii', lambda: clear_dir('./utf8')
     WRITE_UTF8 = 'utf8', lambda: files_to_utf8('./atascii', './utf8')
     COMMIT = 'commit', lambda: commit()
     PUSH = None , None
-    WAIT = None, lambda: time.sleep(30)
-    ERROR = None, None
+    WAIT = None, lambda: wait()
+    EXIT = None, lambda: sys.exit("\tExiting sync process")
+    ERROR = None, lambda: sys.exit("\tError encounted. Exiting sync process")
     
     def __new__(cls, *args, **kwds):
           value = len(cls.__members__) + 1
@@ -53,7 +94,8 @@ def get_current_state():
     state = {
         'atr': list(),
         'atascii': list(),
-        'utf8': list()
+        'utf8': list(),
+        'config': current_config
     }
     
     # ATR
@@ -86,20 +128,27 @@ def commit():
     subprocess.run('git add ./atascii') 
     subprocess.run('git commit -F ./utf8/COMMIT.MSG')    
 
-def load_state():
-    f = open(state_file, mode='r')
-    state = json.loads(f.read())
-    f.close()
-    return state
-
 def save_state(state):
     f = open(state_file, mode='w')
     f.write(json.dumps(state, indent=4))
     f.close()
 
-def check_state(): 
+def decide_action(): 
+    if exit_now:
+        return Action.EXIT
+
     stored_state = load_state()
     current_state = get_current_state()
+
+    if stored_state.get('config') is None:
+        print('\tDefaulting config')
+        return Action.DEFAULT_CONFIG
+
+    if stored_state['config'] and (not current_config or current_config != stored_state['config']):
+        return Action.APPLY_CONFIG
+
+    if not current_config['daemon'] and iterations >= current_config['iterations']:
+        return Action.EXIT
 
     if not current_state['atr']:
         return Action.ERROR
@@ -128,21 +177,39 @@ def update_state(key):
     stored_state[key] = current_state[key]
     save_state(stored_state)
 
-def tick():
-    action = check_state()
-    print(f'Performing {action}... ')
+# Runs a single iteration of the reconciliation logic
+def recon_tick():
+    global iterations
+    action = decide_action()
+
+    total_iterations = '?'
+    if current_config:
+        if current_config['daemon']:
+            total_iterations = '∞'
+        elif current_config['iterations']:
+            total_iterations = current_config['iterations']
+
+    print(f'({iterations}/{total_iterations}) - Performing {action}... ')
     if not action.recon_action is None:
         action.recon_action()
     
     if not action.key is None:
         update_state(action.key)
 
-    print("...Done")
+    print("...Done\n")
+
+    iterations += 1
     return action
 
 def recon_loop():
     while True:
-        tick()
+        try:
+            recon_tick()
+        except KeyboardInterrupt:
+            global iterations
+            iterations += 1
+            global exit_now
+            exit_now = True
 
 def init(clobber = False):
 
