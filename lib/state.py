@@ -1,9 +1,9 @@
 import os
 import hashlib
-import os
 import os.path
 import re
 import json
+import subprocess
 from enum import Enum
 from .shared import clear_dir
 from .shared import files_to_utf8
@@ -11,10 +11,10 @@ from .shared import files_to_utf8
 state_file = './state.json'
 
 class Action(Enum):
-    EXTRACT_ATR = 'atr', lambda: print("Eaxtract")
+    EXTRACT_ATR = 'atr', lambda: extract_atr()
     DELETE_UTF8 = 'atascii', lambda: clear_dir('./utf8')
     WRITE_UTF8 = 'utf8', lambda: files_to_utf8('./atascii', './utf8')
-    COMMIT = 'commit', None
+    COMMIT = 'commit', lambda: commit()
     PUSH = 50, None
     WAIT = None, lambda: print('Nothing to do. Waiting')
     ERROR = None, None
@@ -74,6 +74,12 @@ def get_current_state():
     
     return state
 
+def extract_atr():
+    subprocess.run('./from_atr')
+
+def commit():
+    subprocess.run('git commit -a -F ./utf8/COMMIT.MSG')    
+
 def load_state():
     f = open(state_file, mode='r')
     state = json.loads(f.read())
@@ -115,15 +121,8 @@ def update_state(key):
 
 def tick():
     action = check_state()
-    match action:
-        case Action.DELETE_UTF8:
-            clear_dir('./utf8')
-        case Action.WRITE_UTF8:
-            files_to_utf8('./atascii', './utf8')
-        case Action.WAIT:
-            print('Nothing to do. Waiting')
-        case _:
-            print(f'Don\'t know what to do with {action}')
+    if not action.recon_action is None:
+        action.recon_action()
     
     if not action.key is None:
         update_state(action.key)
