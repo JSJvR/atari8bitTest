@@ -56,7 +56,7 @@ class Action(Enum):
     DELETE_UTF8 = 'atascii', lambda: clear_dir('./utf8')
     WRITE_UTF8 = 'utf8', lambda: files_to_utf8('./atascii', './utf8')
     COMMIT = 'commit', lambda: commit()
-    PUSH = None , None
+    PUSH = 'commit' , lambda: subprocess.run('git push')
     WAIT = None, lambda: wait()
     EXIT = None, lambda: sys.exit("\tExiting sync process")
     ERROR = None, lambda: sys.exit("\tError encounted. Exiting sync process")
@@ -124,9 +124,9 @@ def extract_atr():
     subprocess.run(f'lsatr -X ./atascii ./atr/{get_current_state()['atr'][0]['name']}')
 
 def commit():
-    # subprocess.run('git add ./utf8') 
-    # subprocess.run('git add ./atascii') 
-    subprocess.run('git commit -a -F ./utf8/COMMIT.MSG')    
+    subprocess.run('git add ./utf8') 
+    subprocess.run('git add ./atascii') 
+    subprocess.run('git commit -F ./utf8/COMMIT.MSG')    
 
 def save_state(state):
     f = open(state_file, mode='w')
@@ -166,7 +166,11 @@ def decide_action():
         return Action.WRITE_UTF8
 
     if current_state.get('commit') and (not stored_state.get('commit') or stored_state['commit'] != current_state['commit']):
-        return Action.COMMIT
+        # Magic commit message that makes us push instead of commit
+        if current_state['commit']['msg'].strip(' \t\n\r') == 'PUSH':
+            return Action.PUSH
+        else:
+            return Action.COMMIT
 
     return Action.WAIT
 
