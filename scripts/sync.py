@@ -124,9 +124,9 @@ def extract_atr():
     subprocess.run(f'lsatr -X ./atascii ./atr/{get_current_state()['atr'][0]['name']}')
 
 def commit():
-    subprocess.run('git add ./utf8') 
-    subprocess.run('git add ./atascii') 
-    subprocess.run('git commit -F ./utf8/COMMIT.MSG')    
+    # subprocess.run('git add ./utf8') 
+    # subprocess.run('git add ./atascii') 
+    subprocess.run('git commit -a -F ./utf8/COMMIT.MSG')    
 
 def save_state(state):
     f = open(state_file, mode='w')
