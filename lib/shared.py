@@ -85,11 +85,10 @@ for k, v in translate.items():
         inv_translate["`" + v] = k ^ 0x80
 
 
-def files_to_utf8(ipath, opath, delete_first = False):
-    if delete_first:
-        with os.scandir(opath) as it:
-            for entry in it:
-                os.remove(entry.path)
+def files_to_utf8(ipath, opath, clobber = False):
+    if clobber:
+        clear_dir(opath)
+
     with os.scandir(ipath) as it:
         for entry in it:
             if not entry.name.startswith('.') and entry.is_file():
@@ -125,6 +124,12 @@ def files_to_atascii(ipath, opath):
                     data = f.read(1)
                 f.close()
                 ofile.close()
+
+def clear_dir(path):
+    with os.scandir(path) as it:
+        for entry in it:
+            if not entry.name.startswith('.') and entry.is_file():
+                os.remove(entry.path)
 
 def _test():
     print("*****************************")
