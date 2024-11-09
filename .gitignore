@@ -1,3 +1,4 @@
 COMMIT.MSG
 __pycache__
 state.json
+atr/*.atr

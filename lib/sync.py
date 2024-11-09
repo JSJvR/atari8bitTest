@@ -16,7 +16,7 @@ class Action(Enum):
     DELETE_UTF8 = 'atascii', lambda: clear_dir('./utf8')
     WRITE_UTF8 = 'utf8', lambda: files_to_utf8('./atascii', './utf8')
     COMMIT = 'commit', lambda: commit()
-    PUSH = 50, None
+    PUSH = None , None
     WAIT = None, lambda: time.sleep(30)
     ERROR = None, None
     
@@ -82,7 +82,9 @@ def extract_atr():
     subprocess.run(f'lsatr -X ./atascii ./atr/{get_current_state()['atr'][0]['name']}')
 
 def commit():
-    subprocess.run('git commit -a -F ./utf8/COMMIT.MSG')    
+    subprocess.run('git add ./utf8') 
+    subprocess.run('git add ./atascii') 
+    subprocess.run('git commit -F ./utf8/COMMIT.MSG')    
 
 def load_state():
     f = open(state_file, mode='r')
