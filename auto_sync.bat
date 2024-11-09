@@ -12,6 +12,6 @@ if "%~1"=="-FIXED_CTRL_C" (
    GOTO :EOF
 )
 
-python3 -m lib.sync
+python3 -m scripts.sync
 
 :EOF

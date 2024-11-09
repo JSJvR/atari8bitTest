@@ -1,1 +1,1 @@
-python3 -m lib.utf82ata
+python3 -m scripts.utf82ata
