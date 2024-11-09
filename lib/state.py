@@ -12,8 +12,7 @@ from .shared import files_to_utf8
 state_file = './state.json'
 
 class Action(Enum):
-    DELETE_ATASCII = 'atr', clear_dir('./atascii')
-    EXTRACT_ATR = None, lambda: extract_atr()
+    EXTRACT_ATR = 'atr', lambda: extract_atr()
     DELETE_UTF8 = 'atascii', lambda: clear_dir('./utf8')
     WRITE_UTF8 = 'utf8', lambda: files_to_utf8('./atascii', './utf8')
     COMMIT = 'commit', lambda: commit()
@@ -79,7 +78,7 @@ def get_current_state():
     return state
 
 def extract_atr():
-    print(f'lsatr -X ./atascii/{get_current_state()['atr'][0]['name']}')
+    clear_dir('./atascii')
     subprocess.run(f'lsatr -X ./atascii ./atr/{get_current_state()['atr'][0]['name']}')
 
 def commit():
@@ -104,7 +103,7 @@ def check_state():
         return Action.ERROR
     
     if (not stored_state['atr']) or current_state['atr'][0] != stored_state['atr'][0]:
-        return Action.DELETE_ATASCII
+        return Action.EXTRACT_ATR
     
     if not current_state['atascii']:
         return Action.EXTRACT_ATR
