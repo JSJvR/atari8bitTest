@@ -1,0 +1,264 @@
+; A Simulator for 2-color, 2-state Turmites, aka ants, aka vants
+                       
+INCLUDE "PRINTF.ACT"
+INCLUDE "HELPERS.ACT"
+
+MODULE
+
+BYTE 
+  CONSOL=$D01F ; State of OPTION,SELECT&START keys
+
+BYTE 
+  xres=[160],
+  yres=[160]
+
+DEFINE S_RULE="3"        ; Number of bytes in a single rule
+DEFINE S_ALL_RULES="100" ; Number of bytes in the array that holds all rules
+      
+TYPE AntRule=[
+  BYTE newState,turnDir,newColor
+]                            
+
+TYPE Ant=[
+  BYTE direction,state,xPos,yPos
+  CARD ruleIndx, ruleCode, stepCount      
+]
+
+Ant langton, wiki, rant
+                  
+BYTE ARRAY allRules(S_ALL_RULES)
+                     
+;-------------------------------------;
+; Array holding the four directions
+; represented by the the values we
+; need to add to x and y coordinates
+; when we move in that direction.
+; The BYTE type is techinally unsigned,
+; but we know that in two's complement
+; adding $FF is the same as 
+; subtracting 1
+;-------------------------------------;
+BYTE ARRAY dirs = [
+  $00 $FF ; up:    x,y-1   
+  $01 $00 ; right: x+1,y 
+  $00 $01 ; down:  x,y+1
+  $FF $00 ; left:  x-1,y
+]
+
+BYTE ARRAY dirChrs=['↑ '→ '↓ '←]     
+                                       
+;-------------------------------------;
+
+PROC PrintAnt(Ant POINTER ant)
+  BYTE lo,hi,temp,temp2
+  BYTE ARRAY buf
+                                     
+  buf="    "
+  Card2Hex(ant.ruleCode, buf)
+  temp = ant.ruleIndx
+  PrintF("Code:$%S Index:%U%E",buf,temp)
+
+  temp = ant.direction
+
+  PrintF("[%D,%C%C]",ant.state,'␛,dirChrs(temp))
+  PrintF("  pos:%D,%D",ant.xPos,ant.yPos)
+  PrintF("  steps:%U%E",ant.stepCount)
+RETURN           
+                     
+PROC ResetAnt(Ant POINTER ant)
+  ant.state     = 0
+  ant.stepCount = 0
+  ant.direction = 0
+  ant.xPos      = xRes/2
+  ant.yPos      = yRes/2
+RETURN
+
+BYTE FUNC InBounds(Ant POINTER ant)
+  BYTE result                
+  
+  result = 0  
+  IF ant.xPos>0 AND ant.xPos<xRes-1 AND ant.yPos>0 AND ant.yPos<yRes-1 THEN
+    result=1
+  FI  
+RETURN (result)
+                                       
+;-------------------------------------;
+
+PROC PrintRule(AntRule POINTER rule)
+  PrintB(rule.newState)
+  Print(" ")
+  PrintB(rule.turnDir)
+  Print(" ")
+  PrintB(rule.newColor)
+RETURN
+                                       
+;-------------------------------------;
+
+CARD FUNC AddRule(CARD indx, BYTE color,turn,state)
+  AntRule POINTER rule
+  
+  rule=allRules+indx
+
+  rule.newState = state
+  rule.turnDir  = turn
+  rule.newColor = color
+RETURN (indx+S_RULE)
+                                       
+;-------------------------------------;
+; Decode & add a rule
+;  
+; A single rule for a 2-state 2-color ant can be encoded in 4 bits:
+;   bit 0   : newState
+;   bit 1-2 : turnDir - 0=straight, 1=right, 2=u-turn, 3=left
+;   bit 3   : newColor
+CARD FUNC DecodeRule(CARD indx, BYTE nibble)
+  BYTE 
+    color,turn,state,
+    colorMask = [$08], ; bit 3 
+    turnMask  = [$06], ; bit 1-2
+    stateMask = [$01]  ; bit 0
+  
+  color = (nibble & colorMask) RSH 3
+  turn  = (nibble & turnMask) RSH 1
+  state = (nibble & stateMask)
+
+  indx = AddRule(indx, color, turn, state)
+RETURN (indx)
+                                       
+;-------------------------------------;
+; A full specification of an ant's 
+; rules can fit into 16 bits
+;
+; If we number the bits of a CARD from 
+; 0 (lo) to F (hi),
+; the rules are layed out as follows:
+;         ┌───────────┐
+;         │Input Color│
+;         ├─────┬─────┤
+;         │  0  │  1  │
+; ┌─────┬─┼─────┼─────┤
+; │Input│0│FEDC │BA98 │    
+; │     ├─┼─────┼─────┤
+; │State│1│7654 │3210 │
+; └─────┴─┴─────┴─────┘           
+;-------------------------------------;
+CARD FUNC DecodeAnt(Ant POINTER ant, CARD spec, CARD indx)
+  BYTE 
+    temp
+
+  ant.ruleIndx = indx
+  ant.ruleCode = spec   
+
+  ResetAnt(ant)
+
+  ;PrintF("Spec: $%4H",spec RSH 8)                            
+  ; Color 0, State 0 - High byte, high nibble
+  temp  = spec RSH 12
+  indx  = DecodeRule(indx,temp)
+
+  ; Color 1, State 0 - High byte, low nibble
+  temp  = spec RSH 8 ; We don't need to mask out the high bits. They will be ignored
+  indx  = DecodeRule(indx,temp)
+
+  ; Color 0, State 1 - Low byte, high nibble
+  temp  = spec RSH 4
+  indx  = DecodeRule(indx,temp)
+                            
+  ; Color 1, State 1 - Low byte, low nibble
+  temp  = spec
+  indx  = DecodeRule(indx,temp)
+RETURN (indx)
+
+;-------------------------------------;        
+; Set up a 2D array of AntRules, where 
+; the row is the current
+; state and the column is the current 
+; color
+;-------------------------------------;
+PROC InitRules()    
+  CARD indx, rnd
+  
+  indx = 0
+
+  ; The OG ant
+  indx = DecodeAnt(langton,$E200,indx)       
+
+  ; The ant from the Turmite wikipedia article
+  indx = DecodeAnt(wiki,$AB01,indx)
+  
+  ; Random ant
+  rant.ruleIndx = indx
+  ; We force the output color of the first rule to be 1
+  rnd = Rand(0) % $80 
+  rnd = rnd LSH 8 + Rand(0)
+  indx = DecodeAnt(rant, rnd, indx)
+RETURN
+                        
+;-------------------------------------;
+
+PROC StepAnt(Ant POINTER ant)
+  AntRule POINTER rule
+  CARD indx
+  BYTE curColor,dirIndx
+
+  curColor = Locate(ant.xPos,ant.yPos)
+  indx = ant.ruleIndx + (ant.state*2 + curColor)*S_RULE
+  rule = allRules + indx
+
+  color = rule.newColor
+  Plot(ant.xPos,ant.yPos)
+
+  ant.state     = rule.newState
+  ant.direction = (ant.direction + rule.turnDir) & 3
+  ant.stepCount = ant.stepCount+1    
+  dirIndx  = ant.direction*2
+  ant.xPos = ant.xPos + dirs(dirIndx)
+  ant.yPos = ant.yPos + dirs(dirIndx+1)
+RETURN
+
+;-------------------------------------;
+
+PROC ResetDisplay()
+  Graphics(14)
+  SetColor(0,0,14)
+  color=1
+RETURN                                 
+
+;-------------------------------------;
+
+PROC FMain()      
+  CARD input                
+  BYTE run=[0], keypress=[7]
+  Ant POINTER vant
+
+  InitRules()     
+  ResetDisplay()
+  ;vant = langton
+  vant = wiki
+  ;vant = rant 
+
+  Print("`S`T`A`R`T=run│")
+  PrintE("`S`E`L`E`C`T=step│`O`P`T`I`O`N=random")
+  WHILE 0=0 DO
+    WHILE run=0 AND (CONSOL&3)=3  DO
+      ; Wait
+    OD
+    IF (CONSOL & 1) = 0 THEN 
+      run = run XOR 1
+      ; Debounce
+      WHILE (CONSOL & 1) = 0 DO OD
+    FI    
+    IF InBounds(vant)#1 OR vant.stepCount>$E000 OR (CONSOL&4)=0 THEN
+      InitRules()
+      ResetDisplay()
+      vant = rant
+      PrintAnt(vant)
+    FI
+          
+    StepAnt(vant)
+
+    IF run=0 THEN
+      PrintAnt(vant)
+    FI
+  OD  
+RETURN 

@@ -1,0 +1,176 @@
+;----------------------------------;
+; HELPERS.ACT 
+;
+; Various useful helper functions
+; There's no bounds checking or 
+; error handling, so be careful
+;----------------------------------; 
+       
+; The hexadecimal digits in order
+; Note that this is an array of raw
+; characters rather than a true string,
+; which has the length in byte 0
+BYTE ARRAY hexd = [
+  '0 '1 '2 '3 '4 '5 '6 '7
+  '8 '9 'A 'B 'C 'D 'E 'F
+]
+
+;----------------------------------;                         
+; Converts two hex characters into
+; a BYTE value. The parameter needs
+; to be a string of at least length
+; 2. Any further characters will be
+; ignored. Any value that is not a 
+; valid hex digit will be treated as
+; an "F"
+BYTE FUNC Hex2Byte(BYTE ARRAY hex)
+  BYTE result, indx, temp, i
+            
+  result = 0
+           
+  FOR i = 0 to 1 DO      
+    temp = hex(i + 1)
+    indx = 0 
+    WHILE temp#hexd(indx) AND indx < 15 DO
+      indx ==+ 1
+    OD
+    result = (result LSH 4) + indx
+  OD       
+RETURN (result) 
+
+;------------------------------------;
+
+BYTE FUNC Upper(BYTE chr)
+  IF chr >= 'a AND chr <= 'z THEN
+    chr ==- $20
+  FI
+RETURN (chr)                          
+
+;------------------------------------;
+
+CARD FUNC Hex2Card(BYTE ARRAY hex)
+  CARD result
+  BYTE ARRAY buf(3)               
+                   
+  buf(0) = 2            
+  
+  buf(1) = Upper(hex(1))
+  buf(2) = Upper(hex(2))
+  result = Hex2Byte(buf)
+
+  result ==LSH 8
+                            
+  buf(1) = Upper(hex(3))
+  buf(2) = Upper(hex(4))
+  result ==+ Hex2Byte(buf)
+RETURN (result)
+
+;-------------------------------------;
+
+PROC Byte2Hex(BYTE val, BYTE POINTER hex)
+  BYTE temp
+  BYTE ARRAY output
+           
+  output = hex
+                
+  ; Low nibble
+  temp = val & $0F
+  output(2) = hexd(temp)
+
+  ; High nibble
+  temp = val RSH 4
+  output(1) = hexd(temp) 
+RETURN    
+
+;-------------------------------------;
+
+PROC Card2Hex(CARD val, BYTE POINTER hex)
+  BYTE temp             
+                   
+  ; High byte
+  temp = val RSH 8
+  Byte2Hex(temp, hex)
+  
+  ; Low byte 
+  Byte2Hex(val, hex + 2)
+RETURN
+                                       
+;-------------------------------------;
+
+CARD FUNC InputCH()
+  CARD result     
+  BYTE ARRAY buf              
+  BYTE diff, i  
+
+  buf = "     "
+  InputS(buf)
+
+  ; If the input string is shorter than
+  ; 4 characters, we pad it with leading
+  ; zeroes 
+  diff = 4 - buf(0)          
+
+  WHILE diff>0 DO
+    i = buf(0)
+    buf(0) = i + 1
+       
+    WHILE i >= 1 DO
+      buf(i+1)=buf(i)
+      i ==- 1
+    OD
+                    
+    buf(1) =  '0
+    diff = 4 - buf(0)
+  OD 
+                 
+  result = Hex2Card(buf)
+RETURN (result)
+         
+PROC PrintCH(CARD value)
+  BYTE ARRAY buf = "0000"
+
+  Card2Hex(value, buf)
+  ;Print("$")
+  Print(buf)
+ 
+RETURN            
+                                       
+;-------------------------------------;
+
+PROC PrintCHE(CARD value)
+  PrintCH(value)
+  PrintE("")
+RETURN
+
+PROC Test()
+  BYTE ARRAY hex
+  CARD value
+                
+  hex = "1E"
+  value = Hex2Byte(hex)
+  PrintBE(value)     
+ 
+  hex = "F36A"
+  
+  value = Hex2Card(hex)
+  PrintCE(value)
+
+  hex = "00"
+  value = $3E
+
+  Byte2Hex(value,hex)
+
+  PrintE(hex)              
+
+  hex = "xxxx"
+  Card2Hex($FCF0, hex)
+  PrintE(hex) 
+
+  WHILE value # 0 DO
+    value=InputCH()
+    PrintCE(value)
+    PrintCHE(value)
+    Card2Hex(value, hex)
+    PrintE(hex)
+  OD 
+RETURN 

@@ -1,0 +1,7 @@
+#!/bin/sh
+rm -rf ./atascii
+# Script expects lsatr to be in your path. Available at https://github.com/dmsc/mkatr
+# We can only handle a single ATR file, so if there are multiple, we take the first
+ATR=`ls ./atr/*.atr | head -1`
+echo Extracting files from $ATR...
+lsatr -X ./atascii $ATR
