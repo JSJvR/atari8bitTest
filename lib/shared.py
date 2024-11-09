@@ -85,7 +85,11 @@ for k, v in translate.items():
         inv_translate["`" + v] = k ^ 0x80
 
 
-def files_to_utf8(ipath, opath):
+def files_to_utf8(ipath, opath, delete_first = False):
+    if delete_first:
+        with os.scandir(opath) as it:
+            for entry in it:
+                os.remove(entry.path)
     with os.scandir(ipath) as it:
         for entry in it:
             if not entry.name.startswith('.') and entry.is_file():
