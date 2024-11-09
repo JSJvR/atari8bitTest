@@ -5,18 +5,20 @@ import re
 import json
 import subprocess
 from enum import Enum
+import time
 from .shared import clear_dir
 from .shared import files_to_utf8
 
 state_file = './state.json'
 
 class Action(Enum):
-    EXTRACT_ATR = 'atr', lambda: extract_atr()
+    DELETE_ATASCII = 'atr', clear_dir('./atascii')
+    EXTRACT_ATR = None, lambda: extract_atr()
     DELETE_UTF8 = 'atascii', lambda: clear_dir('./utf8')
     WRITE_UTF8 = 'utf8', lambda: files_to_utf8('./atascii', './utf8')
     COMMIT = 'commit', lambda: commit()
     PUSH = 50, None
-    WAIT = None, lambda: print('Nothing to do. Waiting')
+    WAIT = None, lambda: time.sleep(10)
     ERROR = None, None
     
     def __new__(cls, *args, **kwds):
@@ -75,7 +77,8 @@ def get_current_state():
     return state
 
 def extract_atr():
-    subprocess.run('./from_atr')
+    print(f'lsatr -X ./atascii/{get_current_state()['atr'][0]['name']}')
+    subprocess.run(f'lsatr -X ./atascii ./atr/{get_current_state()['atr'][0]['name']}')
 
 def commit():
     subprocess.run('git commit -a -F ./utf8/COMMIT.MSG')    
@@ -99,6 +102,9 @@ def check_state():
         return Action.ERROR
     
     if (not stored_state['atr']) or current_state['atr'][0] != stored_state['atr'][0]:
+        return Action.DELETE_ATASCII
+    
+    if not current_state['atascii']:
         return Action.EXTRACT_ATR
 
     if (stored_state['atascii'] != current_state['atascii']):
@@ -121,13 +127,19 @@ def update_state(key):
 
 def tick():
     action = check_state()
+    print(f'Performing {action}... ')
     if not action.recon_action is None:
         action.recon_action()
     
     if not action.key is None:
         update_state(action.key)
 
+    print("...Done")
     return action
+
+def recon_loop():
+    while True:
+        tick()
 
 def init(clobber = False):
 
@@ -139,4 +151,4 @@ def init(clobber = False):
 
 if __name__ == '__main__':
     init(False)
-    print(tick())
+    recon_loop()
