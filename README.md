@@ -6,7 +6,7 @@ This is an experimental project to test my Atari 8-bit source control setup. The
 
 I do developtment on an Atari 600XL with a FujiNet connected to my WiFi and a TNFS server running on my PC. I save my projects to an ATR image on my PC. 
 
-I've also written some Python scripts (not committed yet) that translates between ATASCII and UTF-8.
+I've also written some Python scripts that can translate between [ATASCII](https://en.wikipedia.org/wiki/ATASCII) and UTF-8 text files. The translation is based on Rebecca Bettencourt's [ATASCII to Unicode Mapping](https://www.kreativekorp.com/charset/map/atascii/), but since there aren't Unicode representations for most of the reverse video ATASCII characters, I use a backtick as an escape for reverse characters.
 
 Most of the steps mentioned below are working, but it's not automated yet.
 
